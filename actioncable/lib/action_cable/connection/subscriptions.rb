@@ -67,7 +67,7 @@ module ActionCable
           if subscription = subscriptions[data['identifier']]
             subscription
           else
-            raise "Unable to find subscription with identifier: #{data['identifier']}; expected to find one of #{subscriptions.keys.map{|k| normalize_identifier(k)}}"
+            raise "Unable to find subscription with identifier: #{data['identifier']}; expected to find one of #{subscriptions.keys}"
           end
         end
     end
