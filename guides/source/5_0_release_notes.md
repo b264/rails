@@ -270,7 +270,7 @@ Please refer to the [Changelog][action-pack] for detailed changes.
 *   Changed the `protect_from_forgery` prepend default to `false`.
     ([commit](https://github.com/rails/rails/commit/39794037817703575c35a75f1961b01b83791191))
 
-*   `ActionController::TestCase` will be moved to it's own gem in Rails 5.1. Use
+*   `ActionController::TestCase` will be moved to its own gem in Rails 5.1. Use
     `ActionDispatch::IntegrationTest` instead.
     ([commit](https://github.com/rails/rails/commit/4414c5d1795e815b102571425974a8b1d46d932d))
 
@@ -322,10 +322,6 @@ Please refer to the [Changelog][action-view] for detailed changes.
     ([Pull Request](https://github.com/rails/rails/pull/18948),
     [commit](https://github.com/rails/rails/commit/e93f0f0f133717f9b06b1eaefd3442bd0ff43985))
 
-*   Allow defining explicit collection caching using a `# Template Collection: ...`
-    directive inside templates.
-    ([Pull Request](https://github.com/rails/rails/pull/20781))
-
 *   Added wildcard matching to explicit dependencies.
     ([Pull Request](https://github.com/rails/rails/pull/20904))
 
@@ -354,9 +350,6 @@ Please refer to the [Changelog][action-mailer] for detailed changes.
 
 *   Template lookup now respects default locale and I18n fallbacks.
     ([commit](https://github.com/rails/rails/commit/ecb1981b))
-
-*   Template can use fragment cache like Action View template.
-    ([Pull Request](https://github.com/rails/rails/pull/22825))
 
 *   Added `_mailer` suffix to mailers created via generator, following the same
     naming convention used in controllers and jobs.
@@ -508,9 +501,6 @@ Please refer to the [Changelog][active-record] for detailed changes.
 
 *   Added `#cache_key` to `ActiveRecord::Relation`.
     ([Pull Request](https://github.com/rails/rails/pull/20884))
-
-*   Added `ActiveRecord::Relation#outer_joins`.
-    ([Pull Request](https://github.com/rails/rails/pull/12071))
 
 *   Require `belongs_to` by default.
     ([Pull Request](https://github.com/rails/rails/pull/18937)) - Deprecate

@@ -1,3 +1,28 @@
+*   Make `number_to_phone` format number with regexp pattern.
+
+        number_to_phone(18812345678, pattern: /(\d{3})(\d{4})(\d{4})/)
+        # => 188-1234-5678
+
+    *Pan Gaoyong*
+
+*   Match `String#to_time`'s behaviour to that of ruby's implementation for edge cases.
+
+    `nil` is now returned instead of the current date if the string provided does
+    contain time information, but none that is used to build the `Time` object.
+
+    Fixes #22958.
+
+    *Siim Liiser*
+
+*   Rely on the native DateTime#<=> implementation to handle non-datetime like
+    objects instead of returning `nil` ourselves. This restores the ability
+    of `DateTime` instances to be compared with a `Numeric` that represents an
+    astronomical julian day number.
+
+    Fixes #24228.
+
+    *Andrew White*
+
 *   Add `String#upcase_first` method.
 
     *Glauco Custódio*, *bogdanvlviv*
@@ -48,6 +73,7 @@
 
     *Jon Moss*
 
+
 ## Rails 5.0.0.beta2 (February 01, 2016) ##
 
 *   Change `number_to_currency` behavior for checking negativity.
@@ -84,6 +110,7 @@
 *   Add petabyte and exabyte numeric conversion.
 
     *Akshay Vishnoi*
+
 
 ## Rails 5.0.0.beta1 (December 18, 2015) ##
 
