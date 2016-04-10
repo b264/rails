@@ -1,3 +1,7 @@
+*   MariaDB 5.3+ supports microsecond datetime precision.
+
+    *Jeremy Daer*
+
 *   Delegate `empty?`, `none?` and `one?`. Now they can be invoked as model class methods.
 
     Example:
@@ -1440,11 +1444,6 @@
     Fixes #18905.
 
     *Hyonjee Joo*
-
-*   Deprecate passing of `start` value to `find_in_batches` and `find_each`
-    in favour of `begin_at` value.
-
-    *Vipul A M*
 
 *   Add `foreign_key_exists?` method.
 
