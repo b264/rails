@@ -18,6 +18,11 @@ module ActiveRecord
         nil
       end
 
+      # Returns the table comment that's stored in database metadata.
+      def table_comment(table_name)
+        nil
+      end
+
       # Truncates a table alias according to the limits of the current adapter.
       def table_alias_for(table_name)
         table_name[0...table_alias_length].tr('.', '_')
@@ -254,8 +259,8 @@ module ActiveRecord
       #     SELECT * FROM orders INNER JOIN line_items ON order_id=orders.id
       #
       # See also TableDefinition#column for details on how to create columns.
-      def create_table(table_name, options = {})
-        td = create_table_definition table_name, options[:temporary], options[:options], options[:as]
+      def create_table(table_name, comment: nil, **options)
+        td = create_table_definition table_name, options[:temporary], options[:options], options[:as], comment: comment
 
         if options[:id] != false && !options[:as]
           pk = options.fetch(:primary_key) do
@@ -280,6 +285,14 @@ module ActiveRecord
         unless supports_indexes_in_create?
           td.indexes.each_pair do |column_name, index_options|
             add_index(table_name, column_name, index_options)
+          end
+        end
+
+        if supports_comments? && !supports_comments_in_create?
+          change_table_comment(table_name, comment) if comment
+
+          td.columns.each do |column|
+            change_column_comment(table_name, column.name, column.comment) if column.comment
           end
         end
 
@@ -329,12 +342,13 @@ module ActiveRecord
 
         column_options = options.delete(:column_options) || {}
         column_options.reverse_merge!(null: false)
+        type = column_options.delete(:type) || :integer
 
         t1_column, t2_column = [table_1, table_2].map{ |t| t.to_s.singularize.foreign_key }
 
         create_table(join_table_name, options.merge!(id: false)) do |td|
-          td.integer t1_column, column_options
-          td.integer t2_column, column_options
+          td.send type, t1_column, column_options
+          td.send type, t2_column, column_options
           yield td if block_given?
         end
       end
@@ -777,6 +791,7 @@ module ActiveRecord
       #   The reference column type. Defaults to +:integer+.
       # [<tt>:index</tt>]
       #   Add an appropriate index. Defaults to false.
+      #   See #add_index for usage of this option.
       # [<tt>:foreign_key</tt>]
       #   Add an appropriate foreign key constraint. Defaults to false.
       # [<tt>:polymorphic</tt>]
@@ -795,6 +810,14 @@ module ActiveRecord
       # ====== Create supplier_id, supplier_type columns and appropriate index
       #
       #   add_reference(:products, :supplier, polymorphic: true, index: true)
+      #
+      # ====== Create a supplier_id column with a unique index
+      #
+      #   add_reference(:products, :supplier, index: { unique: true })
+      #
+      # ====== Create a supplier_id column with a named index
+      #
+      #   add_reference(:products, :supplier, index: { name: "my_supplier_index" })
       #
       # ====== Create a supplier_id column and appropriate foreign key
       #
@@ -824,14 +847,19 @@ module ActiveRecord
       #
       #   remove_reference(:products, :user, index: true, foreign_key: true)
       #
-      def remove_reference(table_name, ref_name, options = {})
-        if options[:foreign_key]
+      def remove_reference(table_name, ref_name, foreign_key: false, polymorphic: false, **options)
+        if foreign_key
           reference_name = Base.pluralize_table_names ? ref_name.to_s.pluralize : ref_name
-          remove_foreign_key(table_name, reference_name)
+          if foreign_key.is_a?(Hash)
+            foreign_key_options = foreign_key
+          else
+            foreign_key_options = { to_table: reference_name }
+          end
+          remove_foreign_key(table_name, **foreign_key_options)
         end
 
         remove_column(table_name, "#{ref_name}_id")
-        remove_column(table_name, "#{ref_name}_type") if options[:polymorphic]
+        remove_column(table_name, "#{ref_name}_type") if polymorphic
       end
       alias :remove_belongs_to :remove_reference
 
@@ -962,11 +990,23 @@ module ActiveRecord
       end
 
       def dump_schema_information #:nodoc:
+        versions = ActiveRecord::SchemaMigration.order('version').pluck(:version)
+        insert_versions_sql(versions)
+      end
+
+      def insert_versions_sql(versions) # :nodoc:
         sm_table = ActiveRecord::Migrator.schema_migrations_table_name
 
-        sql = "INSERT INTO #{sm_table} (version) VALUES "
-        sql << ActiveRecord::SchemaMigration.order('version').pluck(:version).map {|v| "('#{v}')" }.join(', ')
-        sql << ";\n\n"
+        if supports_multi_insert?
+          sql = "INSERT INTO #{sm_table} (version) VALUES "
+          sql << versions.map {|v| "('#{v}')" }.join(', ')
+          sql << ";\n\n"
+          sql
+        else
+          versions.map { |version|
+            "INSERT INTO #{sm_table} (version) VALUES ('#{version}');"
+          }.join "\n\n"
+        end
       end
 
       # Should not be called normally, but this operation is non-destructive.
@@ -1003,7 +1043,7 @@ module ActiveRecord
           if (duplicate = inserting.detect {|v| inserting.count(v) > 1})
             raise "Duplicate migration #{duplicate}. Please renumber your migrations to resolve the conflict."
           end
-          execute "INSERT INTO #{sm_table} (version) VALUES #{inserting.map {|v| "('#{v}')"}.join(', ') }"
+          execute insert_versions_sql(inserting)
         end
       end
 
@@ -1075,16 +1115,19 @@ module ActiveRecord
         Table.new(table_name, base)
       end
 
-      def add_index_options(table_name, column_name, options = {}) #:nodoc:
-        column_names = Array(column_name)
+      def add_index_options(table_name, column_name, comment: nil, **options) # :nodoc:
+        if column_name.is_a?(String) && /\W/ === column_name
+          column_names = column_name
+        else
+          column_names = Array(column_name)
+        end
 
         options.assert_valid_keys(:unique, :order, :name, :where, :length, :internal, :using, :algorithm, :type)
 
         index_type = options[:type].to_s if options.key?(:type)
         index_type ||= options[:unique] ? "UNIQUE" : ""
         index_name = options[:name].to_s if options.key?(:name)
-        index_name ||= index_name(table_name, column: column_names)
-        max_index_length = options.fetch(:internal, false) ? index_name_length : allowed_index_name_length
+        index_name ||= index_name(table_name, index_name_options(column_names))
 
         if options.key?(:algorithm)
           algorithm = index_algorithms.fetch(options[:algorithm]) {
@@ -1098,19 +1141,28 @@ module ActiveRecord
           index_options = options[:where] ? " WHERE #{options[:where]}" : ""
         end
 
-        if index_name.length > max_index_length
-          raise ArgumentError, "Index name '#{index_name}' on table '#{table_name}' is too long; the limit is #{max_index_length} characters"
-        end
+        validate_index_length!(table_name, index_name, options.fetch(:internal, false))
+
         if data_source_exists?(table_name) && index_name_exists?(table_name, index_name, false)
           raise ArgumentError, "Index name '#{index_name}' on table '#{table_name}' already exists"
         end
         index_columns = quoted_columns_for_index(column_names, options).join(", ")
 
-        [index_name, index_type, index_columns, index_options, algorithm, using]
+        [index_name, index_type, index_columns, index_options, algorithm, using, comment]
       end
 
       def options_include_default?(options)
         options.include?(:default) && !(options[:null] == false && options[:default].nil?)
+      end
+
+      # Changes the comment for a table or removes it if +nil+.
+      def change_table_comment(table_name, comment)
+        raise NotImplementedError, "#{self.class} does not support changing table comments"
+      end
+
+      # Changes the comment for a column or removes it if +nil+.
+      def change_column_comment(table_name, column_name, comment) #:nodoc:
+        raise NotImplementedError, "#{self.class} does not support changing column comments"
       end
 
       protected
@@ -1129,6 +1181,8 @@ module ActiveRecord
 
         # Overridden by the MySQL adapter for supporting index lengths
         def quoted_columns_for_index(column_names, options = {})
+          return [column_names] if column_names.is_a?(String)
+
           option_strings = Hash[column_names.map {|name| [name, '']}]
 
           # add index sort order if supported
@@ -1140,6 +1194,8 @@ module ActiveRecord
         end
 
         def index_name_for_remove(table_name, options = {})
+          return options[:name] if can_remove_index_by_name?(options)
+
           # if the adapter doesn't support the indexes call the best we can do
           # is return the default index name for the options provided
           return index_name(table_name, options) unless respond_to?(:indexes)
@@ -1147,7 +1203,7 @@ module ActiveRecord
           checks = []
 
           if options.is_a?(Hash)
-            checks << lambda { |i| i.name == options[:name].to_s } if options.has_key?(:name)
+            checks << lambda { |i| i.name == options[:name].to_s } if options.key?(:name)
             column_names = Array(options[:column]).map(&:to_s)
           else
             column_names = Array(options).map(&:to_s)
@@ -1194,12 +1250,20 @@ module ActiveRecord
         end
 
       private
-      def create_table_definition(name, temporary = false, options = nil, as = nil)
-        TableDefinition.new(name, temporary, options, as)
+      def create_table_definition(*args)
+        TableDefinition.new(*args)
       end
 
       def create_alter_table(name)
         AlterTable.new create_table_definition(name)
+      end
+
+      def index_name_options(column_names) # :nodoc:
+        if column_names.is_a?(String)
+          column_names = column_names.scan(/\w+/).join('_')
+        end
+
+        { column: column_names }
       end
 
       def foreign_key_name(table_name, options) # :nodoc:
@@ -1210,8 +1274,10 @@ module ActiveRecord
         end
       end
 
-      def validate_index_length!(table_name, new_name) # :nodoc:
-        if new_name.length > allowed_index_name_length
+      def validate_index_length!(table_name, new_name, internal = false) # :nodoc:
+        max_index_length = internal ? index_name_length : allowed_index_name_length
+
+        if new_name.length > max_index_length
           raise ArgumentError, "Index name '#{new_name}' on table '#{table_name}' is too long; the limit is #{allowed_index_name_length} characters"
         end
       end
@@ -1222,6 +1288,10 @@ module ActiveRecord
         else
           default_or_changes
         end
+      end
+
+      def can_remove_index_by_name?(options)
+        options.is_a?(Hash) && options.key?(:name) && options.except(:name, :algorithm).empty?
       end
     end
   end

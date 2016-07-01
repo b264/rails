@@ -11,7 +11,7 @@ class ScaffoldGeneratorTest < Rails::Generators::TestCase
     run_generator
 
     # Model
-    assert_file "app/models/product_line.rb", /class ProductLine < ActiveRecord::Base/
+    assert_file "app/models/product_line.rb", /class ProductLine < ApplicationRecord/
     assert_file "test/models/product_line_test.rb", /class ProductLineTest < ActiveSupport::TestCase/
     assert_file "test/fixtures/product_lines.yml"
     assert_migration "db/migrate/create_product_lines.rb", /belongs_to :product/
@@ -91,7 +91,7 @@ class ScaffoldGeneratorTest < Rails::Generators::TestCase
     run_generator %w(product_line title:string product:belongs_to user:references --api --no-template-engine --no-helper --no-assets)
 
     # Model
-    assert_file "app/models/product_line.rb", /class ProductLine < ActiveRecord::Base/
+    assert_file "app/models/product_line.rb", /class ProductLine < ApplicationRecord/
     assert_file "test/models/product_line_test.rb", /class ProductLineTest < ActiveSupport::TestCase/
     assert_file "test/fixtures/product_lines.yml"
     assert_migration "db/migrate/create_product_lines.rb", /belongs_to :product/
@@ -205,7 +205,7 @@ class ScaffoldGeneratorTest < Rails::Generators::TestCase
 
     # Model
     assert_file "app/models/admin.rb", /module Admin/
-    assert_file "app/models/admin/role.rb", /class Admin::Role < ActiveRecord::Base/
+    assert_file "app/models/admin/role.rb", /class Admin::Role < ApplicationRecord/
     assert_file "test/models/admin/role_test.rb", /class Admin::RoleTest < ActiveSupport::TestCase/
     assert_file "test/fixtures/admin/roles.yml"
     assert_migration "db/migrate/create_admin_roles.rb"
@@ -488,7 +488,7 @@ class ScaffoldGeneratorTest < Rails::Generators::TestCase
         `bin/rails g scaffold User name:string age:integer;
         bin/rails db:migrate`
       end
-      assert_match(/8 runs, 13 assertions, 0 failures, 0 errors/, `bin/rails test 2>&1`)
+      assert_match(/8 runs, 10 assertions, 0 failures, 0 errors/, `bin/rails test 2>&1`)
     end
   end
 
@@ -502,7 +502,7 @@ class ScaffoldGeneratorTest < Rails::Generators::TestCase
         `bin/rails g scaffold User name:string age:integer;
         bin/rails db:migrate`
       end
-      assert_match(/8 runs, 13 assertions, 0 failures, 0 errors/, `bin/rails test 2>&1`)
+      assert_match(/8 runs, 10 assertions, 0 failures, 0 errors/, `bin/rails test 2>&1`)
     end
   end
 

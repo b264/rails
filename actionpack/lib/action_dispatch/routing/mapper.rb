@@ -1,4 +1,3 @@
-require 'active_support/core_ext/hash/reverse_merge'
 require 'active_support/core_ext/hash/slice'
 require 'active_support/core_ext/enumerable'
 require 'active_support/core_ext/array/extract_options'
@@ -107,7 +106,7 @@ module ActionDispatch
           @ast                = ast
           @anchor             = anchor
           @via                = via
-          @internal           = options[:internal]
+          @internal           = options.delete(:internal)
 
           path_params = ast.find_all(&:symbol?).map(&:to_sym)
 
@@ -121,7 +120,7 @@ module ActionDispatch
 
           if options_constraints.is_a?(Hash)
             @defaults = Hash[options_constraints.find_all { |key, default|
-              URL_OPTIONS.include?(key) && (String === default || Fixnum === default)
+              URL_OPTIONS.include?(key) && (String === default || Integer === default)
             }].merge @defaults
             @blocks = blocks
             constraints.merge! options_constraints
@@ -137,6 +136,10 @@ module ActionDispatch
           @requirements = formats[:requirements].merge Hash[requirements]
           @conditions = Hash[conditions]
           @defaults = formats[:defaults].merge(@defaults).merge(normalize_defaults(options))
+
+          if path_params.include?(:action) && !@requirements.key?(:action)
+            @defaults[:action] ||= 'index'
+          end
 
           @required_defaults = (split_options[:required_defaults] || []).map(&:first)
         end
@@ -821,10 +824,10 @@ module ActionDispatch
 
           if options[:constraints].is_a?(Hash)
             defaults = options[:constraints].select do |k, v|
-              URL_OPTIONS.include?(k) && (v.is_a?(String) || v.is_a?(Fixnum))
+              URL_OPTIONS.include?(k) && (v.is_a?(String) || v.is_a?(Integer))
             end
 
-            (options[:defaults] ||= {}).reverse_merge!(defaults)
+            options[:defaults] = defaults.merge(options[:defaults] || {})
           else
             block, options[:constraints] = options[:constraints], {}
           end
@@ -1058,6 +1061,10 @@ module ActionDispatch
 
           def merge_shallow_scope(parent, child) #:nodoc:
             child ? true : false
+          end
+
+          def merge_to_scope(parent, child)
+            child
           end
       end
 
@@ -1579,6 +1586,10 @@ module ActionDispatch
             raise ArgumentError, "Unknown scope #{on.inspect} given to :on"
           end
 
+          if @scope[:to]
+            options[:to] ||= @scope[:to]
+          end
+
           if @scope[:controller] && @scope[:action]
             options[:to] ||= "#{@scope[:controller]}##{@scope[:action]}"
           end
@@ -1598,7 +1609,7 @@ module ActionDispatch
             route_options = options.dup
             if _path && option_path
               ActiveSupport::Deprecation.warn <<-eowarn
-Specifying strings for both :path and the route path is deprecated.  Change things like this:
+Specifying strings for both :path and the route path is deprecated. Change things like this:
 
   match #{_path.inspect}, :path => #{option_path.inspect}
 
@@ -2018,7 +2029,7 @@ to this:
       class Scope # :nodoc:
         OPTIONS = [:path, :shallow_path, :as, :shallow_prefix, :module,
                    :controller, :action, :path_names, :constraints,
-                   :shallow, :blocks, :defaults, :via, :format, :options]
+                   :shallow, :blocks, :defaults, :via, :format, :options, :to]
 
         RESOURCE_SCOPES = [:resource, :resources]
         RESOURCE_METHOD_SCOPES = [:collection, :member, :new]
@@ -2085,8 +2096,7 @@ to this:
 
         def each
           node = self
-          loop do
-            break if node.equal? NULL
+          until node.equal? NULL
             yield node
             node = node.parent
           end

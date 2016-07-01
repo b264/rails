@@ -76,7 +76,7 @@ module AbstractController
         end
       end
 
-      # action_methods are cached and there is sometimes need to refresh
+      # action_methods are cached and there is sometimes a need to refresh
       # them. ::clear_action_methods! allows you to do that, so next time
       # you run action_methods, they will be recalculated.
       def clear_action_methods!
@@ -148,6 +148,13 @@ module AbstractController
     # * <tt>action_name</tt> - The name of an action to be tested
     def available_action?(action_name)
       _find_action_name(action_name)
+    end
+
+    # Tests if a response body is set. Used to determine if the
+    # +process_action+ callback needs to be terminated in
+    # +AbstractController::Callbacks+.
+    def performed?
+      response_body
     end
 
     # Returns true if the given controller is capable of rendering

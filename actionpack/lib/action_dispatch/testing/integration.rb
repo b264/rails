@@ -95,7 +95,7 @@ module ActionDispatch
 
         ActiveSupport::Deprecation.warn(<<-MSG.strip_heredoc)
           xhr and xml_http_request methods are deprecated in favor of
-          `get "/posts", xhr: true` and `post "/posts/1", xhr: true`
+          `get "/posts", xhr: true` and `post "/posts/1", xhr: true`.
         MSG
 
         process(request_method, path, params: params, headers: headers, xhr: true)
@@ -122,6 +122,7 @@ module ActionDispatch
       #     params: { ref_id: 14 },
       #     headers: { "X-Test-Header" => "testvalue" }
       def request_via_redirect(http_method, path, *args)
+        ActiveSupport::Deprecation.warn('`request_via_redirect` is deprecated and will be removed in Rails 5.1. Please use `follow_redirect!` manually after the request call for the same behavior.')
         process_with_kwargs(http_method, path, *args)
 
         follow_redirect! while redirect?
@@ -131,35 +132,35 @@ module ActionDispatch
       # Performs a GET request, following any subsequent redirect.
       # See +request_via_redirect+ for more information.
       def get_via_redirect(path, *args)
-        ActiveSupport::Deprecation.warn('`get_via_redirect` is deprecated and will be removed in Rails 5.1. Please use follow_redirect! manually after the request call for the same behavior.')
+        ActiveSupport::Deprecation.warn('`get_via_redirect` is deprecated and will be removed in Rails 5.1. Please use `follow_redirect!` manually after the request call for the same behavior.')
         request_via_redirect(:get, path, *args)
       end
 
       # Performs a POST request, following any subsequent redirect.
       # See +request_via_redirect+ for more information.
       def post_via_redirect(path, *args)
-        ActiveSupport::Deprecation.warn('`post_via_redirect` is deprecated and will be removed in Rails 5.1. Please use follow_redirect! manually after the request call for the same behavior.')
+        ActiveSupport::Deprecation.warn('`post_via_redirect` is deprecated and will be removed in Rails 5.1. Please use `follow_redirect!` manually after the request call for the same behavior.')
         request_via_redirect(:post, path, *args)
       end
 
       # Performs a PATCH request, following any subsequent redirect.
       # See +request_via_redirect+ for more information.
       def patch_via_redirect(path, *args)
-        ActiveSupport::Deprecation.warn('`patch_via_redirect` is deprecated and will be removed in Rails 5.1. Please use follow_redirect! manually after the request call for the same behavior.')
+        ActiveSupport::Deprecation.warn('`patch_via_redirect` is deprecated and will be removed in Rails 5.1. Please use `follow_redirect!` manually after the request call for the same behavior.')
         request_via_redirect(:patch, path, *args)
       end
 
       # Performs a PUT request, following any subsequent redirect.
       # See +request_via_redirect+ for more information.
       def put_via_redirect(path, *args)
-        ActiveSupport::Deprecation.warn('`put_via_redirect` is deprecated and will be removed in Rails 5.1. Please use follow_redirect! manually after the request call for the same behavior.')
+        ActiveSupport::Deprecation.warn('`put_via_redirect` is deprecated and will be removed in Rails 5.1. Please use `follow_redirect!` manually after the request call for the same behavior.')
         request_via_redirect(:put, path, *args)
       end
 
       # Performs a DELETE request, following any subsequent redirect.
       # See +request_via_redirect+ for more information.
       def delete_via_redirect(path, *args)
-        ActiveSupport::Deprecation.warn('`delete_via_redirect` is deprecated and will be removed in Rails 5.1. Please use follow_redirect! manually after the request call for the same behavior.')
+        ActiveSupport::Deprecation.warn('`delete_via_redirect` is deprecated and will be removed in Rails 5.1. Please use `follow_redirect!` manually after the request call for the same behavior.')
         request_via_redirect(:delete, path, *args)
       end
     end
@@ -299,7 +300,7 @@ module ActionDispatch
           end
         end
 
-        REQUEST_KWARGS = %i(params headers env xhr)
+        REQUEST_KWARGS = %i(params headers env xhr as)
         def kwarg_request?(args)
           args[0].respond_to?(:keys) && args[0].keys.any? { |k| REQUEST_KWARGS.include?(k) }
         end
@@ -316,7 +317,8 @@ module ActionDispatch
               params: { id: 1 },
               headers: { 'X-Extra-Header' => '123' },
               env: { 'action_dispatch.custom' => 'custom' },
-              xhr: true
+              xhr: true,
+              as: :json
           MSG
         end
 
@@ -325,17 +327,17 @@ module ActionDispatch
           request_encoder = RequestEncoder.encoder(as)
 
           if path =~ %r{://}
-            location = URI.parse(path)
-            https! URI::HTTPS === location if location.scheme
-            if url_host = location.host
-              default = Rack::Request::DEFAULT_PORTS[location.scheme]
-              url_host += ":#{location.port}" if default != location.port
-              host! url_host
+            path = build_expanded_path(path, request_encoder) do |location|
+              https! URI::HTTPS === location if location.scheme
+
+              if url_host = location.host
+                default = Rack::Request::DEFAULT_PORTS[location.scheme]
+                url_host += ":#{location.port}" if default != location.port
+                host! url_host
+              end
             end
-            path = request_encoder.append_format_to location.path
-            path = location.query ? "#{path}?#{location.query}" : path
-          else
-            path = request_encoder.append_format_to path
+          elsif as
+            path = build_expanded_path(path, request_encoder)
           end
 
           hostname, port = host.split(':')
@@ -394,6 +396,13 @@ module ActionDispatch
           "#{env['rack.url_scheme']}://#{env['SERVER_NAME']}:#{env['SERVER_PORT']}#{path}"
         end
 
+        def build_expanded_path(path, request_encoder)
+          location = URI.parse(path)
+          yield location if block_given?
+          path = request_encoder.append_format_to location.path
+          location.query ? "#{path}?#{location.query}" : path
+        end
+
         class RequestEncoder # :nodoc:
           @encoders = {}
 
@@ -414,8 +423,11 @@ module ActionDispatch
           end
 
           def append_format_to(path)
-            path << @path_format unless @url_encoded_form
-            path
+            if @url_encoded_form
+              path + @path_format
+            else
+              path
+            end
           end
 
           def content_type

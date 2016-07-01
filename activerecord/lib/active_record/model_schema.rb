@@ -238,7 +238,7 @@ module ActiveRecord
       end
 
       # Returns the next value that will be used as the primary key on
-      # an insert statment.
+      # an insert statement.
       def next_sequence_value
         connection.next_sequence_value(sequence_name)
       end
@@ -265,6 +265,10 @@ module ActiveRecord
       def attribute_types # :nodoc:
         load_schema
         @attribute_types ||= Hash.new(Type::Value.new)
+      end
+
+      def yaml_encoder # :nodoc:
+        @yaml_encoder ||= AttributeSet::YAMLEncoder.new(attribute_types)
       end
 
       # Returns the type of the attribute with the given name, after applying
@@ -375,6 +379,7 @@ module ActiveRecord
         @columns = nil
         @columns_hash = nil
         @attribute_names = nil
+        @yaml_encoder = nil
         direct_descendants.each do |descendant|
           descendant.send(:reload_schema_from_cache)
         end

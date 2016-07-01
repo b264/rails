@@ -626,7 +626,7 @@ class LegacyRouteSetTests < ActiveSupport::TestCase
     assert_equal '/pages/boo', url_for(rs, { :controller => 'pages', :action => 'boo' })
   end
 
-  def test_route_with_fixnum_default
+  def test_route_with_integer_default
     rs.draw do
       get 'page(/:id)' => 'content#show_page', :id => 1
 
@@ -2064,11 +2064,11 @@ class RackMountIntegrationTests < ActiveSupport::TestCase
   def test_extras
     params = {:controller => 'people'}
     assert_equal [], @routes.extra_keys(params)
-    assert_equal({:controller => 'people'}, params)
+    assert_equal({:controller => 'people', :action => 'index'}, params)
 
     params = {:controller => 'people', :foo => 'bar'}
     assert_equal [:foo], @routes.extra_keys(params)
-    assert_equal({:controller => 'people', :foo => 'bar'}, params)
+    assert_equal({:controller => 'people', :action => 'index', :foo => 'bar'}, params)
 
     params = {:controller => 'people', :action => 'create', :person => { :name => 'Josh'}}
     assert_equal [:person], @routes.extra_keys(params)

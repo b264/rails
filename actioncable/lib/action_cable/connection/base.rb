@@ -2,7 +2,7 @@ require 'action_dispatch'
 
 module ActionCable
   module Connection
-    # For every WebSocket the Action Cable server accepts, a Connection object will be instantiated. This instance becomes the parent
+    # For every WebSocket connection the Action Cable server accepts, a Connection object will be instantiated. This instance becomes the parent
     # of all of the channel subscriptions that are created from there on. Incoming messages are then routed to these channel subscriptions
     # based on an identifier sent by the Action Cable consumer. The Connection itself does not deal with any specific application logic beyond
     # authentication and authorization.
@@ -40,7 +40,7 @@ module ActionCable
     # Second, we rely on the fact that the WebSocket connection is established with the cookies from the domain being sent along. This makes
     # it easy to use signed cookies that were set when logging in via a web interface to authorize the WebSocket connection.
     #
-    # Finally, we add a tag to the connection-specific logger with name of the current user to easily distinguish their messages in the log.
+    # Finally, we add a tag to the connection-specific logger with the name of the current user to easily distinguish their messages in the log.
     #
     # Pretty simple, eh?
     class Base

@@ -102,6 +102,18 @@ module ActionDispatch
         assert_equal("PUT", fakeset.routes.first.verb)
       end
 
+      def test_to_scope
+        fakeset = FakeSet.new
+        mapper = Mapper.new fakeset
+        mapper.scope(to: "posts#index") do
+          mapper.get :all
+          mapper.post :most
+        end
+
+        assert_equal "posts#index", fakeset.routes.to_a[0].defaults[:to]
+        assert_equal "posts#index", fakeset.routes.to_a[1].defaults[:to]
+      end
+
       def test_map_slash
         fakeset = FakeSet.new
         mapper = Mapper.new fakeset
@@ -176,6 +188,19 @@ module ActionDispatch
 
         assert_raises ArgumentError do
           mapper.mount as: "exciting"
+        end
+      end
+
+      def test_scope_does_not_destructively_mutate_default_options
+        fakeset = FakeSet.new
+        mapper = Mapper.new fakeset
+
+        frozen = { foo: :bar }.freeze
+
+        assert_nothing_raised do
+          mapper.scope(defaults: frozen) do
+            # pass
+          end
         end
       end
     end

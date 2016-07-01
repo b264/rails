@@ -4,7 +4,7 @@ require "action_cable/helpers/action_cable_helper"
 require "active_support/core_ext/hash/indifferent_access"
 
 module ActionCable
-  class Railtie < Rails::Engine # :nodoc:
+  class Engine < Rails::Engine # :nodoc:
     config.action_cable = ActiveSupport::OrderedOptions.new
     config.action_cable.mount_path = ActionCable::INTERNAL[:default_mount_path]
 
@@ -22,7 +22,7 @@ module ActionCable
 
     initializer "action_cable.set_configs" do |app|
       options = app.config.action_cable
-      options.allowed_request_origins ||= "http://localhost:3000" if ::Rails.env.development?
+      options.allowed_request_origins ||= /https?:\/\/localhost:\d+/ if ::Rails.env.development?
 
       app.paths.add "config/cable", with: "config/cable.yml"
 
@@ -31,11 +31,8 @@ module ActionCable
           self.cable = Rails.application.config_for(config_path).with_indifferent_access
         end
 
-        if 'ApplicationCable::Connection'.safe_constantize
-          self.connection_class = ApplicationCable::Connection
-        end
-
-        self.channel_paths = Rails.application.paths['app/channels'].existent
+        previous_connection_class = self.connection_class
+        self.connection_class = -> { 'ApplicationCable::Connection'.safe_constantize || previous_connection_class.call }
 
         options.each { |k,v| send("#{k}=", v) }
       end

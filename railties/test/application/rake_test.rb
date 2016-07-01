@@ -118,8 +118,8 @@ module ApplicationTests
     end
 
     def test_code_statistics_sanity
-      assert_match "Code LOC: 18     Test LOC: 0     Code to Test Ratio: 1:0.0",
-        Dir.chdir(app_path){ `bin/rails stats` }
+      assert_match "Code LOC: 26     Test LOC: 0     Code to Test Ratio: 1:0.0",
+        Dir.chdir(app_path) { `bin/rails stats` }
     end
 
     def test_rails_routes_calls_the_route_inspector
@@ -228,6 +228,17 @@ module ApplicationTests
       MESSAGE
     end
 
+    def test_rake_routes_with_rake_options
+      app_file "config/routes.rb", <<-RUBY
+        Rails.application.routes.draw do
+          get '/cart', to: 'cart#show'
+        end
+      RUBY
+
+      output = Dir.chdir(app_path){ `bin/rake --rakefile Rakefile routes` }
+      assert_equal "Prefix Verb URI Pattern     Controller#Action\n  cart GET  /cart(.:format) cart#show\n", output
+    end
+
     def test_logger_is_flushed_when_exiting_production_rake_tasks
       add_to_config <<-RUBY
         rake_tasks do
@@ -276,7 +287,7 @@ module ApplicationTests
          RAILS_ENV=test bin/rails db:migrate test`
       end
 
-      assert_match(/7 runs, 12 assertions, 0 failures, 0 errors/, output)
+      assert_match(/7 runs, 9 assertions, 0 failures, 0 errors/, output)
       assert_no_match(/Errors running/, output)
     end
 
@@ -307,7 +318,7 @@ module ApplicationTests
          RAILS_ENV=test bin/rails db:migrate test`
       end
 
-      assert_match(/7 runs, 12 assertions, 0 failures, 0 errors/, output)
+      assert_match(/7 runs, 9 assertions, 0 failures, 0 errors/, output)
       assert_no_match(/Errors running/, output)
     end
 

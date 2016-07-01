@@ -55,6 +55,10 @@ module ActionView
         @query_cache = SmallCache.new
       end
 
+      def inspect
+        "#<#{self.class.name}:0x#{(object_id << 1).to_s(16)} keys=#{@data.size} queries=#{@query_cache.size}>"
+      end
+
       # Cache the templates returned by the block
       def cache(key, name, prefix, partial, locals)
         if Resolver.caching?
@@ -82,6 +86,23 @@ module ActionView
       def clear
         @data.clear
         @query_cache.clear
+      end
+
+      # Get the cache size.  Do not call this
+      # method. This method is not guaranteed to be here ever.
+      def size # :nodoc:
+        size = 0
+        @data.each_value do |v1|
+          v1.each_value do |v2|
+            v2.each_value do |v3|
+              v3.each_value do |v4|
+                size += v4.size
+              end
+            end
+          end
+        end
+
+        size + @query_cache.size
       end
 
       private

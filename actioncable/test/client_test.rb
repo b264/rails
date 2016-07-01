@@ -1,27 +1,48 @@
 require 'test_helper'
 require 'concurrent'
 
-require 'active_support/core_ext/hash/indifferent_access'
-require 'pathname'
-
 require 'faye/websocket'
 require 'json'
+
+require 'active_support/hash_with_indifferent_access'
 
 class ClientTest < ActionCable::TestCase
   WAIT_WHEN_EXPECTING_EVENT = 8
   WAIT_WHEN_NOT_EXPECTING_EVENT = 0.5
+
+  class EchoChannel < ActionCable::Channel::Base
+    def subscribed
+      stream_from "global"
+    end
+
+    def unsubscribed
+      'Goodbye from EchoChannel!'
+    end
+
+    def ding(data)
+      transmit(dong: data['message'])
+    end
+
+    def delay(data)
+      sleep 1
+      transmit(dong: data['message'])
+    end
+
+    def bulk(data)
+      ActionCable.server.broadcast "global", wide: data['message']
+    end
+  end
 
   def setup
     ActionCable.instance_variable_set(:@server, nil)
     server = ActionCable.server
     server.config.logger = Logger.new(StringIO.new).tap { |l| l.level = Logger::UNKNOWN }
 
-    server.config.cable = { adapter: 'async' }.with_indifferent_access
+    server.config.cable = ActiveSupport::HashWithIndifferentAccess.new(adapter: 'async')
     server.config.use_faye = ENV['FAYE'].present?
 
     # and now the "real" setup for our test:
     server.config.disable_request_forgery_protection = true
-    server.config.channel_paths = [ File.expand_path('client/echo_channel.rb', __dir__) ]
 
     Thread.new { EventMachine.run } unless EventMachine.reactor_running?
     Thread.pass until EventMachine.reactor_running?
@@ -148,10 +169,10 @@ class ClientTest < ActionCable::TestCase
     with_puma_server do |port|
       c = faye_client(port)
       assert_equal({"type" => "welcome"}, c.read_message)  # pop the first welcome message off the stack
-      c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'EchoChannel')
-      assert_equal({"identifier"=>"{\"channel\":\"EchoChannel\"}", "type"=>"confirm_subscription"}, c.read_message)
-      c.send_message command: 'message', identifier: JSON.generate(channel: 'EchoChannel'), data: JSON.generate(action: 'ding', message: 'hello')
-      assert_equal({"identifier"=>"{\"channel\":\"EchoChannel\"}", "message"=>{"dong"=>"hello"}}, c.read_message)
+      c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'ClientTest::EchoChannel')
+      assert_equal({"identifier"=>"{\"channel\":\"ClientTest::EchoChannel\"}", "type"=>"confirm_subscription"}, c.read_message)
+      c.send_message command: 'message', identifier: JSON.generate(channel: 'ClientTest::EchoChannel'), data: JSON.generate(action: 'ding', message: 'hello')
+      assert_equal({"identifier"=>"{\"channel\":\"ClientTest::EchoChannel\"}", "message"=>{"dong"=>"hello"}}, c.read_message)
       c.close
     end
   end
@@ -165,12 +186,12 @@ class ClientTest < ActionCable::TestCase
 
       clients.map {|c| Concurrent::Future.execute {
         assert_equal({"type" => "welcome"}, c.read_message)  # pop the first welcome message off the stack
-        c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'EchoChannel')
-        assert_equal({"identifier"=>'{"channel":"EchoChannel"}', "type"=>"confirm_subscription"}, c.read_message)
-        c.send_message command: 'message', identifier: JSON.generate(channel: 'EchoChannel'), data: JSON.generate(action: 'ding', message: 'hello')
-        assert_equal({"identifier"=>'{"channel":"EchoChannel"}', "message"=>{"dong"=>"hello"}}, c.read_message)
+        c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'ClientTest::EchoChannel')
+        assert_equal({"identifier"=>'{"channel":"ClientTest::EchoChannel"}', "type"=>"confirm_subscription"}, c.read_message)
+        c.send_message command: 'message', identifier: JSON.generate(channel: 'ClientTest::EchoChannel'), data: JSON.generate(action: 'ding', message: 'hello')
+        assert_equal({"identifier"=>'{"channel":"ClientTest::EchoChannel"}', "message"=>{"dong"=>"hello"}}, c.read_message)
         barrier_1.wait WAIT_WHEN_EXPECTING_EVENT
-        c.send_message command: 'message', identifier: JSON.generate(channel: 'EchoChannel'), data: JSON.generate(action: 'bulk', message: 'hello')
+        c.send_message command: 'message', identifier: JSON.generate(channel: 'ClientTest::EchoChannel'), data: JSON.generate(action: 'bulk', message: 'hello')
         barrier_2.wait WAIT_WHEN_EXPECTING_EVENT
         assert_equal clients.size, c.read_messages(clients.size).size
       } }.each(&:wait!)
@@ -185,10 +206,10 @@ class ClientTest < ActionCable::TestCase
 
       clients.map {|c| Concurrent::Future.execute {
         assert_equal({"type" => "welcome"}, c.read_message)  # pop the first welcome message off the stack
-        c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'EchoChannel')
-        assert_equal({"identifier"=>'{"channel":"EchoChannel"}', "type"=>"confirm_subscription"}, c.read_message)
-        c.send_message command: 'message', identifier: JSON.generate(channel: 'EchoChannel'), data: JSON.generate(action: 'ding', message: 'hello')
-        assert_equal({"identifier"=>'{"channel":"EchoChannel"}', "message"=>{"dong"=>"hello"}}, c.read_message)
+        c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'ClientTest::EchoChannel')
+        assert_equal({"identifier"=>'{"channel":"ClientTest::EchoChannel"}', "type"=>"confirm_subscription"}, c.read_message)
+        c.send_message command: 'message', identifier: JSON.generate(channel: 'ClientTest::EchoChannel'), data: JSON.generate(action: 'ding', message: 'hello')
+        assert_equal({"identifier"=>'{"channel":"ClientTest::EchoChannel"}', "message"=>{"dong"=>"hello"}}, c.read_message)
       } }.each(&:wait!)
 
       clients.map {|c| Concurrent::Future.execute { c.close } }.each(&:wait!)
@@ -199,17 +220,17 @@ class ClientTest < ActionCable::TestCase
     with_puma_server do |port|
       c = faye_client(port)
       assert_equal({"type" => "welcome"}, c.read_message)  # pop the first welcome message off the stack
-      c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'EchoChannel')
-      assert_equal({"identifier"=>"{\"channel\":\"EchoChannel\"}", "type"=>"confirm_subscription"}, c.read_message)
-      c.send_message command: 'message', identifier: JSON.generate(channel: 'EchoChannel'), data: JSON.generate(action: 'delay', message: 'hello')
+      c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'ClientTest::EchoChannel')
+      assert_equal({"identifier"=>"{\"channel\":\"ClientTest::EchoChannel\"}", "type"=>"confirm_subscription"}, c.read_message)
+      c.send_message command: 'message', identifier: JSON.generate(channel: 'ClientTest::EchoChannel'), data: JSON.generate(action: 'delay', message: 'hello')
       c.close # disappear before write
 
       c = faye_client(port)
       assert_equal({"type" => "welcome"}, c.read_message) # pop the first welcome message off the stack
-      c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'EchoChannel')
-      assert_equal({"identifier"=>"{\"channel\":\"EchoChannel\"}", "type"=>"confirm_subscription"}, c.read_message)
-      c.send_message command: 'message', identifier: JSON.generate(channel: 'EchoChannel'), data: JSON.generate(action: 'ding', message: 'hello')
-      assert_equal({"identifier"=>'{"channel":"EchoChannel"}', "message"=>{"dong"=>"hello"}}, c.read_message)
+      c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'ClientTest::EchoChannel')
+      assert_equal({"identifier"=>"{\"channel\":\"ClientTest::EchoChannel\"}", "type"=>"confirm_subscription"}, c.read_message)
+      c.send_message command: 'message', identifier: JSON.generate(channel: 'ClientTest::EchoChannel'), data: JSON.generate(action: 'ding', message: 'hello')
+      assert_equal({"identifier"=>'{"channel":"ClientTest::EchoChannel"}', "message"=>{"dong"=>"hello"}}, c.read_message)
       c.close # disappear before read
     end
   end
@@ -217,16 +238,18 @@ class ClientTest < ActionCable::TestCase
   def test_unsubscribe_client
     with_puma_server do |port|
       app = ActionCable.server
-      identifier = JSON.generate(channel: 'EchoChannel')
+      identifier = JSON.generate(channel: 'ClientTest::EchoChannel')
 
       c = faye_client(port)
       assert_equal({"type" => "welcome"}, c.read_message)
       c.send_message command: 'subscribe', identifier: identifier
-      assert_equal({"identifier"=>"{\"channel\":\"EchoChannel\"}", "type"=>"confirm_subscription"}, c.read_message)
+      assert_equal({"identifier"=>"{\"channel\":\"ClientTest::EchoChannel\"}", "type"=>"confirm_subscription"}, c.read_message)
       assert_equal(1, app.connections.count)
       assert(app.remote_connections.where(identifier: identifier))
 
-      channel = app.connections.first.subscriptions.send(:subscriptions).first[1]
+      subscriptions = app.connections.first.subscriptions.send(:subscriptions)
+      assert_not_equal 0, subscriptions.size, 'Missing EchoChannel subscription'
+      channel = subscriptions.first[1]
       channel.expects(:unsubscribed)
       c.close
       sleep 0.1 # Data takes a moment to process
@@ -240,8 +263,8 @@ class ClientTest < ActionCable::TestCase
     with_puma_server do |port|
       c = faye_client(port)
       assert_equal({"type" => "welcome"}, c.read_message)
-      c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'EchoChannel')
-      assert_equal({"identifier"=>"{\"channel\":\"EchoChannel\"}", "type"=>"confirm_subscription"}, c.read_message)
+      c.send_message command: 'subscribe', identifier: JSON.generate(channel: 'ClientTest::EchoChannel')
+      assert_equal({"identifier"=>"{\"channel\":\"ClientTest::EchoChannel\"}", "type"=>"confirm_subscription"}, c.read_message)
 
       ActionCable.server.restart
       c.wait_for_close

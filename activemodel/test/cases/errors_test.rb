@@ -11,7 +11,7 @@ class ErrorsTest < ActiveModel::TestCase
     attr_reader   :errors
 
     def validate!
-      errors.add(:name, "cannot be nil") if name == nil
+      errors.add(:name, :blank, message: "cannot be nil") if name == nil
     end
 
     def read_attribute_for_validation(attr)
@@ -217,6 +217,12 @@ class ErrorsTest < ActiveModel::TestCase
     person = Person.new
     person.errors.add(:name, "is invalid")
     assert !person.errors.added?(:name, "cannot be blank")
+  end
+
+  test "added? returns false when checking for an error, but not providing message arguments" do
+    person = Person.new
+    person.errors.add(:name, "cannot be blank")
+    assert !person.errors.added?(:name)
   end
 
   test "size calculates the number of error messages" do
@@ -426,5 +432,14 @@ class ErrorsTest < ActiveModel::TestCase
 
     assert_equal [:name], person.errors.messages.keys
     assert_equal [:name], person.errors.details.keys
+  end
+
+  test "errors are marshalable" do
+    errors = ActiveModel::Errors.new(Person.new)
+    errors.add(:name, :invalid)
+    serialized = Marshal.load(Marshal.dump(errors))
+
+    assert_equal errors.messages, serialized.messages
+    assert_equal errors.details, serialized.details
   end
 end

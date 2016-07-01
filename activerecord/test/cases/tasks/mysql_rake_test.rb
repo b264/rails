@@ -1,4 +1,5 @@
 require 'cases/helper'
+require 'active_record/tasks/database_tasks'
 
 if current_adapter?(:Mysql2Adapter)
 module ActiveRecord
@@ -12,6 +13,13 @@ module ActiveRecord
 
       ActiveRecord::Base.stubs(:connection).returns(@connection)
       ActiveRecord::Base.stubs(:establish_connection).returns(true)
+
+      $stdout, @original_stdout = StringIO.new, $stdout
+      $stderr, @original_stderr = StringIO.new, $stderr
+    end
+
+    def teardown
+      $stdout, $stderr = @original_stdout, @original_stderr
     end
 
     def test_establishes_connection_without_database
@@ -48,14 +56,20 @@ module ActiveRecord
       ActiveRecord::Tasks::DatabaseTasks.create @configuration
     end
 
-    def test_create_when_database_exists_outputs_info_to_stderr
-      $stderr.expects(:puts).with("my-app-db already exists").once
+    def test_when_database_created_successfully_outputs_info_to_stdout
+      ActiveRecord::Tasks::DatabaseTasks.create @configuration
 
+      assert_equal $stdout.string, "Created database 'my-app-db'\n"
+    end
+
+    def test_create_when_database_exists_outputs_info_to_stderr
       ActiveRecord::Base.connection.stubs(:create_database).raises(
-        ActiveRecord::StatementInvalid.new("Can't create database 'dev'; database exists:")
+        ActiveRecord::Tasks::DatabaseAlreadyExists
       )
 
       ActiveRecord::Tasks::DatabaseTasks.create @configuration
+
+      assert_equal $stderr.string, "Database 'my-app-db' already exists\n"
     end
   end
 
@@ -77,6 +91,13 @@ module ActiveRecord
       ActiveRecord::Base.stubs(:establish_connection).
         raises(@error).
         then.returns(true)
+
+      $stdout, @original_stdout = StringIO.new, $stdout
+      $stderr, @original_stderr = StringIO.new, $stderr
+    end
+
+    def teardown
+      $stdout, $stderr = @original_stdout, @original_stderr
     end
 
     def test_root_password_is_requested
@@ -160,6 +181,13 @@ module ActiveRecord
 
       ActiveRecord::Base.stubs(:connection).returns(@connection)
       ActiveRecord::Base.stubs(:establish_connection).returns(true)
+
+      $stdout, @original_stdout = StringIO.new, $stdout
+      $stderr, @original_stderr = StringIO.new, $stderr
+    end
+
+    def teardown
+      $stdout, $stderr = @original_stdout, @original_stderr
     end
 
     def test_establishes_connection_to_mysql_database
@@ -172,6 +200,12 @@ module ActiveRecord
       @connection.expects(:drop_database).with('my-app-db')
 
       ActiveRecord::Tasks::DatabaseTasks.drop @configuration
+    end
+
+    def test_when_database_dropped_successfully_outputs_info_to_stdout
+      ActiveRecord::Tasks::DatabaseTasks.drop @configuration
+
+      assert_equal $stdout.string, "Dropped database 'my-app-db'\n"
     end
   end
 
@@ -255,7 +289,7 @@ module ActiveRecord
 
     def test_structure_dump
       filename = "awesome-file.sql"
-      Kernel.expects(:system).with("mysqldump", "--result-file", filename, "--no-data", "--routines", "test-db").returns(true)
+      Kernel.expects(:system).with("mysqldump", "--result-file", filename, "--no-data", "--routines", "--skip-comments", "test-db").returns(true)
 
       ActiveRecord::Tasks::DatabaseTasks.structure_dump(@configuration, filename)
     end
@@ -263,7 +297,7 @@ module ActiveRecord
     def test_warn_when_external_structure_dump_command_execution_fails
       filename = "awesome-file.sql"
       Kernel.expects(:system)
-        .with("mysqldump", "--result-file", filename, "--no-data", "--routines", "test-db")
+        .with("mysqldump", "--result-file", filename, "--no-data", "--routines", "--skip-comments", "test-db")
         .returns(false)
 
       e = assert_raise(RuntimeError) {
@@ -274,7 +308,7 @@ module ActiveRecord
 
     def test_structure_dump_with_port_number
       filename = "awesome-file.sql"
-      Kernel.expects(:system).with("mysqldump", "--port=10000", "--result-file", filename, "--no-data", "--routines", "test-db").returns(true)
+      Kernel.expects(:system).with("mysqldump", "--port=10000", "--result-file", filename, "--no-data", "--routines", "--skip-comments", "test-db").returns(true)
 
       ActiveRecord::Tasks::DatabaseTasks.structure_dump(
         @configuration.merge('port' => 10000),
@@ -283,7 +317,7 @@ module ActiveRecord
 
     def test_structure_dump_with_ssl
       filename = "awesome-file.sql"
-      Kernel.expects(:system).with("mysqldump", "--ssl-ca=ca.crt", "--result-file", filename, "--no-data", "--routines", "test-db").returns(true)
+      Kernel.expects(:system).with("mysqldump", "--ssl-ca=ca.crt", "--result-file", filename, "--no-data", "--routines", "--skip-comments", "test-db").returns(true)
 
       ActiveRecord::Tasks::DatabaseTasks.structure_dump(
         @configuration.merge("sslca" => "ca.crt"),
@@ -307,6 +341,5 @@ module ActiveRecord
       ActiveRecord::Tasks::DatabaseTasks.structure_load(@configuration, filename)
     end
   end
-
 end
 end

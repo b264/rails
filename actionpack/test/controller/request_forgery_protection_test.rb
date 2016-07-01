@@ -407,6 +407,37 @@ module RequestForgeryProtectionTests
     end
   end
 
+  def test_should_warn_on_not_same_origin_js
+    old_logger = ActionController::Base.logger
+    logger = ActiveSupport::LogSubscriber::TestHelper::MockLogger.new
+    ActionController::Base.logger = logger
+
+    begin
+      assert_cross_origin_blocked { get :same_origin_js }
+
+      assert_equal 1, logger.logged(:warn).size
+      assert_match(/<script> tag on another site requested protected JavaScript/, logger.logged(:warn).last)
+    ensure
+      ActionController::Base.logger = old_logger
+    end
+  end
+
+  def test_should_not_warn_if_csrf_logging_disabled_and_not_same_origin_js
+    old_logger = ActionController::Base.logger
+    logger = ActiveSupport::LogSubscriber::TestHelper::MockLogger.new
+    ActionController::Base.logger = logger
+    ActionController::Base.log_warning_on_csrf_failure = false
+
+    begin
+      assert_cross_origin_blocked { get :same_origin_js }
+
+      assert_equal 0, logger.logged(:warn).size
+    ensure
+      ActionController::Base.logger = old_logger
+      ActionController::Base.log_warning_on_csrf_failure = true
+    end
+  end
+
   # Allow non-GET requests since GET is all a remote <script> tag can muster.
   def test_should_allow_non_get_js_without_xhr_header
     session[:_csrf_token] = @token
@@ -770,6 +801,19 @@ class PerFormTokensControllerTest < ActionController::TestCase
 
   def test_ignores_trailing_slash_during_generation
     get :index, params: {form_path: '/per_form_tokens/post_one/'}
+
+    form_token = assert_presence_and_fetch_form_csrf_token
+
+    # This is required because PATH_INFO isn't reset between requests.
+    @request.env['PATH_INFO'] = '/per_form_tokens/post_one'
+    assert_nothing_raised do
+      post :post_one, params: {custom_authenticity_token: form_token}
+    end
+    assert_response :success
+  end
+
+  def test_ignores_origin_during_generation
+    get :index, params: {form_path: 'https://example.com/per_form_tokens/post_one/'}
 
     form_token = assert_presence_and_fetch_form_csrf_token
 

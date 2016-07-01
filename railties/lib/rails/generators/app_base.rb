@@ -296,7 +296,7 @@ module Rails
         return [] if options[:skip_sprockets]
 
         gems = []
-        gems << GemfileEntry.version('sass-rails', '~> 5.0',
+        gems << GemfileEntry.github('sass-rails', 'rails/sass-rails', nil,
                                      'Use SCSS for stylesheets')
 
         gems << GemfileEntry.version('uglifier',
@@ -308,11 +308,11 @@ module Rails
 
       def jbuilder_gemfile_entry
         comment = 'Build JSON APIs with ease. Read more: https://github.com/rails/jbuilder'
-        GemfileEntry.new 'jbuilder', '~> 2.0', comment, {}, options[:api]
+        GemfileEntry.new 'jbuilder', '~> 2.5', comment, {}, options[:api]
       end
 
       def coffee_gemfile_entry
-        GemfileEntry.version 'coffee-rails', '~> 4.1.0', 'Use CoffeeScript for .coffee assets and views'
+        GemfileEntry.version 'coffee-rails', '~> 4.2', 'Use CoffeeScript for .coffee assets and views'
       end
 
       def javascript_gemfile_entry
@@ -324,7 +324,7 @@ module Rails
                                        "Use #{options[:javascript]} as the JavaScript library")
 
           unless options[:skip_turbolinks]
-            gems << GemfileEntry.version("turbolinks", "~> 5.x",
+            gems << GemfileEntry.version("turbolinks", "~> 5",
              "Turbolinks makes navigating your web application faster. Read more: https://github.com/turbolinks/turbolinks")
           end
 

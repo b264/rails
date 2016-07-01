@@ -93,7 +93,7 @@ current version of Ruby installed:
 
 ```bash
 $ ruby -v
-ruby 2.3.0p0
+ruby 2.3.1p112
 ```
 
 TIP: A number of tools exist to help you quickly install Ruby and Ruby
@@ -164,7 +164,7 @@ of the files and folders that Rails created by default:
 
 | File/Folder | Purpose |
 | ----------- | ------- |
-|app/|Contains the controllers, models, views, helpers, mailers and assets for your application. You'll focus on this folder for the remainder of this guide.|
+|app/|Contains the controllers, models, views, helpers, mailers, channels, jobs and assets for your application. You'll focus on this folder for the remainder of this guide.|
 |bin/|Contains the rails script that starts your app and can contain other scripts you use to setup, update, deploy or run your application.|
 |config/|Configure your application's routes, database, and more. This is covered in more detail in [Configuring Rails Applications](configuring.html).|
 |config.ru|Rack configuration for Rack based servers used to start the application.|
@@ -244,11 +244,11 @@ Ruby) which is processed by the request cycle in Rails before being sent to the
 user.
 
 To create a new controller, you will need to run the "controller" generator and
-tell it you want a controller called "welcome" with an action called "index",
+tell it you want a controller called "Welcome" with an action called "index",
 just like this:
 
 ```bash
-$ bin/rails generate controller welcome index
+$ bin/rails generate controller Welcome index
 ```
 
 Rails will create several files and a route for you.
@@ -263,6 +263,7 @@ invoke  test_unit
 create    test/controllers/welcome_controller_test.rb
 invoke  helper
 create    app/helpers/welcome_helper.rb
+invoke    test_unit
 invoke  assets
 invoke    coffee
 create      app/assets/javascripts/welcome.coffee
@@ -298,9 +299,6 @@ Rails.application.routes.draw do
   get 'welcome/index'
 
   # For details on the DSL available within this file, see http://guides.rubyonrails.org/routing.html
-
-  # Serve websocket cable requests in-process
-  # mount ActionCable.server => '/cable'
 end
 ```
 
@@ -315,10 +313,6 @@ It should look something like the following:
 Rails.application.routes.draw do
   get 'welcome/index'
 
-  # For details on the DSL available within this file, see http://guides.rubyonrails.org/routing.html
-
-  # Serve websocket cable requests in-process
-  # mount ActionCable.server => '/cable'
   root 'welcome#index'
 end
 ```
@@ -327,7 +321,7 @@ end
 application to the welcome controller's index action and `get 'welcome/index'`
 tells Rails to map requests to <http://localhost:3000/welcome/index> to the
 welcome controller's index action. This was created earlier when you ran the
-controller generator (`bin/rails generate controller welcome index`).
+controller generator (`bin/rails generate controller Welcome index`).
 
 Launch the web server again if you stopped it to generate the controller (`bin/rails
 server`) and navigate to <http://localhost:3000> in your browser. You'll see the
@@ -390,7 +384,7 @@ create and read. The form for doing this will look like this:
 It will look a little basic for now, but that's ok. We'll look at improving the
 styling for it afterwards.
 
-### Laying down the ground work
+### Laying down the groundwork
 
 Firstly, you need a place within the application to create a new article. A
 great place for that would be at `/articles/new`. With the route already
@@ -406,7 +400,7 @@ a controller called `ArticlesController`. You can do this by running this
 command:
 
 ```bash
-$ bin/rails generate controller articles
+$ bin/rails generate controller Articles
 ```
 
 If you open up the newly generated `app/controllers/articles_controller.rb`
@@ -461,7 +455,7 @@ available, Rails will raise an exception.
 In the above image, the bottom line has been truncated. Let's see what the full
 error message looks like:
 
->Missing template articles/new, application/new with {locale:[:en], formats:[:html], handlers:[:erb, :builder, :coffee]}. Searched in: * "/path/to/blog/app/views"
+>ArticlesController#new is missing a template for this request format and variant. request.formats: ["text/html"] request.variant: [] NOTE! For XHR/Ajax or API requests, this action would normally respond with 204 No Content: an empty white screen. Since you're loading it in a web browser, we assume that you expected to actually render a template, not… nothing, so we're showing an error to be extra-clear. If you expect 204 No Content, carry on. That's what you'll get from an XHR or API request. Give it a shot.
 
 That's quite a lot of text! Let's quickly go through and understand what each
 part of it means.
@@ -474,15 +468,15 @@ one here because the `ArticlesController` inherits from `ApplicationController`.
 The next part of the message contains a hash. The `:locale` key in this hash
 simply indicates which spoken language template should be retrieved. By default,
 this is the English - or "en" - template. The next key, `:formats` specifies the
-format of template to be served in response. The default format is `:html`, and
+format of the template to be served in response. The default format is `:html`, and
 so Rails is looking for an HTML template. The final key, `:handlers`, is telling
 us what _template handlers_ could be used to render our template. `:erb` is most
 commonly used for HTML templates, `:builder` is used for XML templates, and
 `:coffee` uses CoffeeScript to build JavaScript templates.
 
-The final part of this message tells us where Rails has looked for the templates.
-Templates within a basic Rails application like this are kept in a single
-location, but in more complex applications it could be many different paths.
+The message also contains `request.formats` which specifies the format of template to be
+served in response. It is set to `text/html` as we requested this page via browser, so Rails
+is looking for an HTML template.
 
 The simplest template that would work in this case would be one located at
 `app/views/articles/new.html.erb`. The extension of this file name is important:
@@ -490,7 +484,9 @@ the first extension is the _format_ of the template, and the second extension
 is the _handler_ that will be used. Rails is attempting to find a template
 called `articles/new` within `app/views` for the application. The format for
 this template can only be `html` and the handler must be one of `erb`,
-`builder` or `coffee`. Because you want to create a new HTML form, you will be
+`builder` or `coffee`. `:erb` is most commonly used for HTML templates, `:builder` is
+used for XML templates, and `:coffee` uses CoffeeScript to build JavaScript templates.
+Because you want to create a new HTML form, you will be
 using the `ERB` language which is designed to embed Ruby in HTML.
 
 Therefore the file should be called `articles/new.html.erb` and needs to be
@@ -610,9 +606,11 @@ class ArticlesController < ApplicationController
 end
 ```
 
-If you re-submit the form now, you'll see another familiar error: a template is
-missing. That's ok, we can ignore that for now. What the `create` action should
-be doing is saving our new article to the database.
+If you re-submit the form now, you may not see any change on the page. Don't worry!
+This is because Rails by default returns `204 No Content` response for an action if
+we don't specify what the response should be. We just added the `create` action
+but didn't specify anything about how the response should be. In this case, the
+`create` action should save our new article to the database.
 
 When a form is submitted, the fields of the form are sent to Rails as
 _parameters_. These parameters can then be referenced inside the controller

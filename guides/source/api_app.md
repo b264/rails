@@ -79,8 +79,6 @@ Handled at the middleware layer:
   code. All you need to do is use the
   [`stale?`](http://api.rubyonrails.org/classes/ActionController/ConditionalGet.html#method-i-stale-3F)
   check in your controller, and Rails will handle all of the HTTP details for you.
-- Caching: If you use `dirty?` with public cache control, Rails will automatically
-  cache your responses. You can easily configure the cache store.
 - HEAD requests: Rails will transparently convert `HEAD` requests into `GET` ones,
   and return just the headers on the way out. This makes `HEAD` work reliably in
   all Rails APIs.
@@ -181,7 +179,7 @@ To render debugging information preserving the response format, use the value `:
 config.debug_exception_response_format = :api
 ```
 
-By default, `config.debug_exception_response_format` is set to `:api`.
+By default, `config.debug_exception_response_format` is set to `:api`, when `config.api_only` is set to true.
 
 Finally, inside `app/controllers/application_controller.rb`, instead of:
 
@@ -204,7 +202,7 @@ An API application comes with the following middleware by default:
 
 - `Rack::Sendfile`
 - `ActionDispatch::Static`
-- `ActionDispatch::LoadInterlock`
+- `ActionDispatch::Executor`
 - `ActiveSupport::Cache::Strategy::LocalCache::Middleware`
 - `Rack::Runtime`
 - `ActionDispatch::RequestId`
@@ -214,6 +212,7 @@ An API application comes with the following middleware by default:
 - `ActionDispatch::RemoteIp`
 - `ActionDispatch::Reloader`
 - `ActionDispatch::Callbacks`
+- `ActiveRecord::Migration::CheckPending`
 - `Rack::Head`
 - `Rack::ConditionalGet`
 - `Rack::ETag`
@@ -291,7 +290,7 @@ You can learn more about how to use `Rack::Sendfile` with popular
 front-ends in [the Rack::Sendfile
 documentation](http://rubydoc.info/github/rack/rack/master/Rack/Sendfile).
 
-Here are some values for popular servers, once they are configured, to support
+Here are some values for this header for some popular servers, once these servers are configured to support
 accelerated file sending:
 
 ```ruby
@@ -341,7 +340,7 @@ API application, especially if one of your API clients is the browser:
 - `Rack::MethodOverride`
 - `ActionDispatch::Cookies`
 - `ActionDispatch::Flash`
-- For sessions management
+- For session management
     * `ActionDispatch::Session::CacheStore`
     * `ActionDispatch::Session::CookieStore`
     * `ActionDispatch::Session::MemCacheStore`
@@ -375,10 +374,8 @@ controller modules by default:
 - `AbstractController::Rendering` and `ActionController::ApiRendering`: Basic support for rendering.
 - `ActionController::Renderers::All`: Support for `render :json` and friends.
 - `ActionController::ConditionalGet`: Support for `stale?`.
-- `ActionController::BasicImplicitRender`: Makes sure to return an empty response
-  if there's not an explicit one.
-- `ActionController::StrongParameters`: Support for parameters white-listing in
-  combination with Active Model mass assignment.
+- `ActionController::BasicImplicitRender`: Makes sure to return an empty response, if there isn't an explicit one.
+- `ActionController::StrongParameters`: Support for parameters white-listing in combination with Active Model mass assignment.
 - `ActionController::ForceSSL`: Support for `force_ssl`.
 - `ActionController::DataStreaming`: Support for `send_file` and `send_data`.
 - `AbstractController::Callbacks`: Support for `before_action` and
@@ -388,8 +385,8 @@ controller modules by default:
   hooks defined by Action Controller (see [the instrumentation
   guide](active_support_instrumentation.html#action-controller) for
 more information regarding this).
-- `ActionController::ParamsWrapper`: Wraps the parameters hash into a nested hash
-  so you don't have to specify root elements sending POST requests for instance.
+- `ActionController::ParamsWrapper`: Wraps the parameters hash into a nested hash, 
+  so that you don't have to specify root elements sending POST requests for instance.
 
 Other plugins may add additional modules. You can get a list of all modules
 included into `ActionController::API` in the rails console:
@@ -397,6 +394,13 @@ included into `ActionController::API` in the rails console:
 ```bash
 $ bin/rails c
 >> ActionController::API.ancestors - ActionController::Metal.ancestors
+=> [ActionController::API, 
+    ActiveRecord::Railties::ControllerRuntime, 
+    ActionDispatch::Routing::RouteSet::MountedHelpers, 
+    ActionController::ParamsWrapper, 
+    ... , 
+    AbstractController::Rendering, 
+    ActionView::ViewPaths]
 ```
 
 ### Adding Other Modules
@@ -411,7 +415,7 @@ Some common modules you might want to add:
   and translation methods.
 - `ActionController::HttpAuthentication::Basic` (or `Digest` or `Token`): Support
   for basic, digest or token HTTP authentication.
-- `AbstractController::Layouts`: Support for layouts when rendering.
+- `ActionView::Layouts`: Support for layouts when rendering.
 - `ActionController::MimeResponds`: Support for `respond_to`.
 - `ActionController::Cookies`: Support for `cookies`, which includes
   support for signed and encrypted cookies. This requires the cookies middleware.

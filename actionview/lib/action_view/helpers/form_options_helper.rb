@@ -268,10 +268,11 @@ module ActionView
       # for more information.)
       #
       # You can also supply an array of ActiveSupport::TimeZone objects
-      # as +priority_zones+, so that they will be listed above the rest of the
-      # (long) list. (You can use ActiveSupport::TimeZone.us_zones as a convenience
-      # for obtaining a list of the US time zones, or a Regexp to select the zones
-      # of your choice)
+      # as +priority_zones+ so that they will be listed above the rest of the
+      # (long) list. You can use ActiveSupport::TimeZone.us_zones for a list
+      # of US time zones, ActiveSupport::TimeZone.country_zones(country_code)
+      # for another country's time zones, or a Regexp to select the zones of
+      # your choice.
       #
       # Finally, this method supports a <tt>:default</tt> option, which selects
       # a default ActiveSupport::TimeZone if the object's time zone is +nil+.
@@ -362,7 +363,7 @@ module ActionView
           html_attributes[:disabled] ||= disabled && option_value_selected?(value, disabled)
           html_attributes[:value] = value
 
-          content_tag_string(:option, text, html_attributes)
+          tag_builder.content_tag_string(:option, text, html_attributes)
         end.join("\n").html_safe
       end
 

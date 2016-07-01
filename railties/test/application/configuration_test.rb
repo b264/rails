@@ -555,6 +555,31 @@ module ApplicationTests
       assert_equal 'myamazonsecretaccesskey', app.secrets.aws_secret_access_key
     end
 
+    test "shared secrets saved in config/secrets.yml are loaded in app secrets" do
+      app_file 'config/secrets.yml', <<-YAML
+        shared:
+          api_key: 3b7cd727
+      YAML
+
+      app 'development'
+
+      assert_equal '3b7cd727', app.secrets.api_key
+    end
+
+    test "shared secrets will yield to environment specific secrets" do
+      app_file 'config/secrets.yml', <<-YAML
+        shared:
+          api_key: 3b7cd727
+        
+        development:
+          api_key: abc12345
+      YAML
+
+      app 'development'
+
+      assert_equal 'abc12345', app.secrets.api_key
+    end
+
     test "blank config/secrets.yml does not crash the loading process" do
       app_file 'config/secrets.yml', <<-YAML
       YAML
@@ -686,7 +711,7 @@ module ApplicationTests
 
         private
 
-        def form_authenticity_token(*args); token; end # stub the authenticy token
+        def form_authenticity_token(*args); token; end # stub the authenticity token
       end
       RUBY
 
@@ -1464,7 +1489,7 @@ module ApplicationTests
       assert_equal :api, Rails.configuration.debug_exception_response_format
     end
 
-    test "debug_exception_response_format can be overriden" do
+    test "debug_exception_response_format can be overridden" do
       add_to_config <<-RUBY
         config.api_only = true
       RUBY

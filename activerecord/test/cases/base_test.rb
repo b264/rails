@@ -14,7 +14,6 @@ require 'models/auto_id'
 require 'models/boolean'
 require 'models/column_name'
 require 'models/subscriber'
-require 'models/keyboard'
 require 'models/comment'
 require 'models/minimalistic'
 require 'models/warehouse_thing'
@@ -25,7 +24,6 @@ require 'models/joke'
 require 'models/bird'
 require 'models/car'
 require 'models/bulb'
-require 'rexml/document'
 require 'concurrent/atomic/count_down_latch'
 
 class FirstAbstractClass < ActiveRecord::Base
@@ -940,7 +938,7 @@ class BasicsTest < ActiveRecord::TestCase
     assert_kind_of Integer, m1.world_population
     assert_equal 6000000000, m1.world_population
 
-    assert_kind_of Fixnum, m1.my_house_population
+    assert_kind_of Integer, m1.my_house_population
     assert_equal 3, m1.my_house_population
 
     assert_kind_of BigDecimal, m1.bank_balance
@@ -968,7 +966,7 @@ class BasicsTest < ActiveRecord::TestCase
     assert_kind_of Integer, m1.world_population
     assert_equal 6000000000, m1.world_population
 
-    assert_kind_of Fixnum, m1.my_house_population
+    assert_kind_of Integer, m1.my_house_population
     assert_equal 3, m1.my_house_population
 
     assert_kind_of BigDecimal, m1.bank_balance
@@ -1032,12 +1030,6 @@ class BasicsTest < ActiveRecord::TestCase
     t1.save
     t2.reload
     assert_equal t1.title, t2.title
-  end
-
-  def test_reload_with_exclusive_scope
-    dev = DeveloperCalledDavid.first
-    dev.update!(name: "NotDavid" )
-    assert_equal dev, dev.reload
   end
 
   def test_switching_between_table_name
@@ -1502,6 +1494,10 @@ class BasicsTest < ActiveRecord::TestCase
   # delete this.
   test "records without an id have unique hashes" do
     assert_not_equal Post.new.hash, Post.new.hash
+  end
+
+  test "records of different classes have different hashes" do
+    assert_not_equal Post.new(id: 1).hash, Developer.new(id: 1).hash
   end
 
   test "resetting column information doesn't remove attribute methods" do

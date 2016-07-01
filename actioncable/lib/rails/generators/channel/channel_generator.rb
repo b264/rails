@@ -13,7 +13,11 @@ module Rails
         template "channel.rb", File.join('app/channels', class_path, "#{file_name}_channel.rb")
 
         if options[:assets]
-          template "assets/channel.coffee", File.join('app/assets/javascripts/channels', class_path, "#{file_name}.coffee")
+          if self.behavior == :invoke
+            template "assets/cable.js", "app/assets/javascripts/cable.js"
+          end
+
+          js_template "assets/channel", File.join('app/assets/javascripts/channels', class_path, "#{file_name}")
         end
 
         generate_application_cable_files

@@ -213,7 +213,7 @@ module ActionController #:nodoc:
 
         if !verified_request?
           if logger && log_warning_on_csrf_failure
-            logger.warn "Can't verify CSRF token authenticity"
+            logger.warn "Can't verify CSRF token authenticity."
           end
           handle_unverified_request
         end
@@ -235,7 +235,9 @@ module ActionController #:nodoc:
       # we aren't serving an unauthorized cross-origin response.
       def verify_same_origin_request
         if marked_for_same_origin_verification? && non_xhr_javascript_response?
-          logger.warn CROSS_ORIGIN_JAVASCRIPT_WARNING if logger
+          if logger && log_warning_on_csrf_failure
+            logger.warn CROSS_ORIGIN_JAVASCRIPT_WARNING
+          end
           raise ActionController::InvalidCrossOriginRequest, CROSS_ORIGIN_JAVASCRIPT_WARNING
         end
       end
@@ -405,7 +407,8 @@ module ActionController #:nodoc:
       end
 
       def normalize_action_path(action_path)
-        action_path.split('?').first.to_s.chomp('/')
+        uri = URI.parse(action_path)
+        uri.path.chomp('/')
       end
   end
 end

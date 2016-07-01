@@ -18,6 +18,7 @@ RAILS_FRAMEWORK_ROOT = File.expand_path("#{File.dirname(__FILE__)}/../../..")
 
 # These files do not require any others and are needed
 # to run the tests
+require "active_support/core_ext/object/blank"
 require "active_support/testing/isolation"
 require "active_support/core_ext/kernel/reporting"
 require 'tmpdir'
@@ -111,7 +112,7 @@ module TestHelpers
 
       # Delete the initializers unless requested
       unless options[:initializers]
-        Dir["#{app_path}/config/initializers/*.rb"].each do |initializer|
+        Dir["#{app_path}/config/initializers/**/*.rb"].each do |initializer|
           File.delete(initializer)
         end
       end

@@ -1,5 +1,23 @@
 require 'abstract_unit'
 
+class Workshop
+  extend ActiveModel::Naming
+  include ActiveModel::Conversion
+  attr_accessor :id
+
+  def initialize(id)
+    @id = id
+  end
+
+  def persisted?
+    id.present?
+  end
+
+  def to_s
+    id.to_s
+  end
+end
+
 class RedirectController < ActionController::Base
   # empty method not used anywhere to ensure methods like
   # `status` and `location` aren't called on `redirect_to` calls
@@ -176,7 +194,6 @@ class RedirectTest < ActionController::TestCase
     assert_equal "http://www.example.com", redirect_to_url
   end
 
-
   def test_relative_url_redirect_with_status
     get :relative_url_redirect_with_status
     assert_response 302
@@ -313,7 +330,7 @@ class RedirectTest < ActionController::TestCase
     error = assert_raise(ArgumentError) do
       get :redirect_to_params
     end
-    assert_equal "Generating a URL from non sanitized request parameters is insecure!", error.message
+    assert_equal ActionDispatch::Routing::INSECURE_URL_PARAMETERS_MESSAGE, error.message
   end
 
   def test_redirect_to_with_block

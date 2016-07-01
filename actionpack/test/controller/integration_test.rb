@@ -35,7 +35,7 @@ class SessionTest < ActiveSupport::TestCase
     path = "/somepath"; args = {:id => '1'}; headers = {"X-Test-Header" => "testvalue"}
     assert_called_with @session, :process, [:put, path, params: args, headers: headers] do
       @session.stub :redirect?, false do
-        @session.request_via_redirect(:put, path, params: args, headers: headers)
+        assert_deprecated { @session.request_via_redirect(:put, path, params: args, headers: headers) }
       end
     end
   end
@@ -54,7 +54,7 @@ class SessionTest < ActiveSupport::TestCase
     value_series = [true, true, false]
     assert_called @session, :follow_redirect!, times: 2 do
       @session.stub :redirect?, ->{ value_series.shift } do
-        @session.request_via_redirect(:get, path, params: args, headers: headers)
+        assert_deprecated { @session.request_via_redirect(:get, path, params: args, headers: headers) }
       end
     end
   end
@@ -63,7 +63,9 @@ class SessionTest < ActiveSupport::TestCase
     path = "/somepath"; args = {:id => '1'}; headers = {"X-Test-Header" => "testvalue"}
     @session.stub :redirect?, false do
       @session.stub :status, 200 do
-        assert_equal 200, @session.request_via_redirect(:get, path, params: args, headers: headers)
+        assert_deprecated do
+          assert_equal 200, @session.request_via_redirect(:get, path, params: args, headers: headers)
+        end
       end
     end
   end
@@ -1145,6 +1147,22 @@ class IntegrationRequestEncodersTest < ActionDispatch::IntegrationTest
     end
   end
 
+  def test_standard_json_encoding_works
+    with_routing do |routes|
+      routes.draw do
+        ActiveSupport::Deprecation.silence do
+          post ':action' => FooController
+        end
+      end
+
+      post '/foos_json.json', params: { foo: 'fighters' }.to_json,
+        headers: { 'Content-Type' => 'application/json' }
+
+      assert_response :success
+      assert_equal({ 'foo' => 'fighters' }, response.parsed_body)
+    end
+  end
+
   def test_encoding_as_json
     post_to_foos as: :json do
       assert_response :success
@@ -1187,6 +1205,20 @@ class IntegrationRequestEncodersTest < ActionDispatch::IntegrationTest
       end
 
       get '/foos_json.json', params: { foo: 'heyo' }
+
+      assert_equal({ 'foo' => 'heyo' }, response.parsed_body)
+    end
+  end
+
+  def test_get_parameters_with_as_option
+    with_routing do |routes|
+      routes.draw do
+        ActiveSupport::Deprecation.silence do
+          get ':action' => FooController
+        end
+      end
+
+      get '/foos_json?foo=heyo', as: :json
 
       assert_equal({ 'foo' => 'heyo' }, response.parsed_body)
     end

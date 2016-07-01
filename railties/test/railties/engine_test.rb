@@ -481,7 +481,7 @@ YAML
         end
       RUBY
 
-      add_to_config "config.middleware.use \"Bukkits\""
+      add_to_config "config.middleware.use Bukkits"
       boot_rails
     end
 
@@ -1155,10 +1155,10 @@ YAML
       assert_equal "App's bar partial", last_response.body.strip
 
       get("/assets/foo.js")
-      assert_equal "// Bukkit's foo js", last_response.body.strip
+      assert_match "// Bukkit's foo js", last_response.body.strip
 
       get("/assets/bar.js")
-      assert_equal "// App's bar js", last_response.body.strip
+      assert_match "// App's bar js", last_response.body.strip
 
       # ensure that railties are not added twice
       railties = Rails.application.send(:ordered_railties).map(&:class)

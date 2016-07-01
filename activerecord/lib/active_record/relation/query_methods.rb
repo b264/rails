@@ -99,22 +99,28 @@ module ActiveRecord
     end
 
     def bound_attributes
-      result = from_clause.binds + arel.bind_values + where_clause.binds + having_clause.binds
       if limit_value && !string_containing_comma?(limit_value)
-        result << Attribute.with_cast_value(
+        limit_bind = Attribute.with_cast_value(
           "LIMIT".freeze,
           connection.sanitize_limit(limit_value),
           Type::Value.new,
         )
       end
       if offset_value
-        result << Attribute.with_cast_value(
+        offset_bind = Attribute.with_cast_value(
           "OFFSET".freeze,
           offset_value.to_i,
           Type::Value.new,
         )
       end
-      result
+      connection.combine_bind_parameters(
+        from_clause: from_clause.binds,
+        join_clause: arel.bind_values,
+        where_clause: where_clause.binds,
+        having_clause: having_clause.binds,
+        limit: limit_bind,
+        offset: offset_bind,
+      )
     end
 
     FROZEN_EMPTY_HASH = {}.freeze
@@ -652,7 +658,7 @@ module ActiveRecord
     # present). Neither relation may have a #limit, #offset, or #distinct set.
     #
     #    Post.where("id = 1").or(Post.where("author_id = 3"))
-    #    # SELECT `posts`.* FROM `posts`  WHERE (('id = 1' OR 'author_id = 3'))
+    #    # SELECT `posts`.* FROM `posts` WHERE ((id = 1) OR (author_id = 3))
     #
     def or(other)
       unless other.is_a? Relation
@@ -1000,12 +1006,6 @@ module ActiveRecord
       end
 
       self.send(unscope_code, result)
-    end
-
-    def association_for_table(table_name)
-      table_name = table_name.to_s
-      @klass._reflect_on_association(table_name) ||
-        @klass._reflect_on_association(table_name.singularize)
     end
 
     def build_from

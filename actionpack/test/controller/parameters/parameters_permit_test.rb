@@ -360,4 +360,19 @@ class ParametersPermitTest < ActiveSupport::TestCase
     assert @params.include? 'person'
     assert_not @params.include? :gorilla
   end
+
+  test "scalar values should be filtered when array or hash is specified" do
+    params = ActionController::Parameters.new(foo: "bar")
+
+    assert params.permit(:foo).has_key?(:foo)
+    refute params.permit(foo: []).has_key?(:foo)
+    refute params.permit(foo: [:bar]).has_key?(:foo)
+    refute params.permit(foo: :bar).has_key?(:foo)
+  end
+
+  test '#permitted? is false by default' do
+    params = ActionController::Parameters.new
+
+    assert_equal false, params.permitted?
+  end
 end

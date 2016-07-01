@@ -3,14 +3,14 @@ module ActiveRecord
     # Abstract representation of an index definition on a table. Instances of
     # this type are typically created and returned by methods in database
     # adapters. e.g. ActiveRecord::ConnectionAdapters::AbstractMysqlAdapter#indexes
-    class IndexDefinition < Struct.new(:table, :name, :unique, :columns, :lengths, :orders, :where, :type, :using) #:nodoc:
+    class IndexDefinition < Struct.new(:table, :name, :unique, :columns, :lengths, :orders, :where, :type, :using, :comment) #:nodoc:
     end
 
     # Abstract representation of a column definition. Instances of this type
     # are typically created by methods in TableDefinition, and added to the
     # +columns+ attribute of said TableDefinition object, in order to be used
     # for generating a number of table creation or table changing SQL statements.
-    class ColumnDefinition < Struct.new(:name, :type, :limit, :precision, :scale, :default, :null, :first, :after, :auto_increment, :primary_key, :collation, :sql_type) #:nodoc:
+    class ColumnDefinition < Struct.new(:name, :type, :limit, :precision, :scale, :default, :null, :first, :after, :auto_increment, :primary_key, :collation, :sql_type, :comment) #:nodoc:
 
       def primary_key?
         primary_key || type.to_sym == :primary_key
@@ -51,11 +51,12 @@ module ActiveRecord
         options[:primary_key] != default_primary_key
       end
 
-      def defined_for?(options_or_to_table = {})
-        if options_or_to_table.is_a?(Hash)
-          options_or_to_table.all? {|key, value| options[key].to_s == value.to_s }
+      def defined_for?(to_table_ord = nil, to_table: nil, **options)
+        if to_table_ord
+          self.to_table == to_table_ord.to_s
         else
-          to_table == options_or_to_table.to_s
+          (to_table.nil? || to_table.to_s == self.to_table) &&
+            options.all? { |k, v| self.options[k].to_s == v.to_s }
         end
       end
 
@@ -207,9 +208,9 @@ module ActiveRecord
       include ColumnMethods
 
       attr_accessor :indexes
-      attr_reader :name, :temporary, :options, :as, :foreign_keys
+      attr_reader :name, :temporary, :options, :as, :foreign_keys, :comment
 
-      def initialize(name, temporary, options, as = nil)
+      def initialize(name, temporary = false, options = nil, as = nil, comment: nil)
         @columns_hash = {}
         @indexes = {}
         @foreign_keys = []
@@ -218,6 +219,7 @@ module ActiveRecord
         @options = options
         @as = as
         @name = name
+        @comment = comment
       end
 
       def primary_keys(name = nil) # :nodoc:
@@ -330,6 +332,9 @@ module ActiveRecord
       end
 
       def foreign_key(table_name, options = {}) # :nodoc:
+        table_name_prefix = ActiveRecord::Base.table_name_prefix
+        table_name_suffix = ActiveRecord::Base.table_name_suffix
+        table_name = "#{table_name_prefix}#{table_name}#{table_name_suffix}"
         foreign_keys.push([table_name, options])
       end
 
@@ -373,6 +378,7 @@ module ActiveRecord
         column.auto_increment = options[:auto_increment]
         column.primary_key = type == :primary_key || options[:primary_key]
         column.collation   = options[:collation]
+        column.comment     = options[:comment]
         column
       end
 

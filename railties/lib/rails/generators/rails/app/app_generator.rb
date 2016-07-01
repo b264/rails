@@ -90,34 +90,19 @@ module Rails
 
     def config_when_updating
       cookie_serializer_config_exist = File.exist?('config/initializers/cookies_serializer.rb')
-      callback_terminator_config_exist = File.exist?('config/initializers/callback_terminator.rb')
-      active_record_belongs_to_required_by_default_config_exist = File.exist?('config/initializers/active_record_belongs_to_required_by_default.rb')
       action_cable_config_exist = File.exist?('config/cable.yml')
-      ssl_options_exist = File.exist?('config/initializers/ssl_options.rb')
       rack_cors_config_exist = File.exist?('config/initializers/cors.rb')
 
       config
 
       gsub_file 'config/environments/development.rb', /^(\s+)config\.file_watcher/, '\1# config.file_watcher'
 
-      unless callback_terminator_config_exist
-        remove_file 'config/initializers/callback_terminator.rb'
-      end
-
       unless cookie_serializer_config_exist
         gsub_file 'config/initializers/cookies_serializer.rb', /json(?!,)/, 'marshal'
       end
 
-      unless active_record_belongs_to_required_by_default_config_exist
-        remove_file 'config/initializers/active_record_belongs_to_required_by_default.rb'
-      end
-
       unless action_cable_config_exist
         template 'config/cable.yml'
-      end
-
-      unless ssl_options_exist
-        remove_file 'config/initializers/ssl_options.rb'
       end
 
       unless rack_cors_config_exist
@@ -241,6 +226,11 @@ module Rails
       end
       remove_task :update_config_files
 
+      def display_upgrade_guide_info
+        say "\nAfter this, check Rails upgrade guide at http://guides.rubyonrails.org/upgrading_ruby_on_rails.html for more details about upgrading your app."
+      end
+      remove_task :display_upgrade_info
+
       def create_boot_file
         template "config/boot.rb"
       end
@@ -300,6 +290,17 @@ module Rails
         end
       end
 
+      def delete_public_files_if_api_option
+        if options[:api]
+          remove_file 'public/404.html'
+          remove_file 'public/422.html'
+          remove_file 'public/500.html'
+          remove_file 'public/apple-touch-icon-precomposed.png'
+          remove_file 'public/apple-touch-icon.png'
+          remove_file 'public/favicon.ico'
+        end
+      end
+
       def delete_js_folder_skipping_javascript
         if options[:skip_javascript]
           remove_dir 'app/assets/javascripts'
@@ -326,12 +327,6 @@ module Rails
         end
       end
 
-      def delete_active_record_initializers_skipping_active_record
-        if options[:skip_active_record]
-          remove_file 'config/initializers/active_record_belongs_to_required_by_default.rb'
-        end
-      end
-
       def delete_action_cable_files_skipping_action_cable
         if options[:skip_action_cable]
           remove_file 'config/cable.yml'
@@ -344,8 +339,6 @@ module Rails
         if options[:api]
           remove_file 'config/initializers/session_store.rb'
           remove_file 'config/initializers/cookies_serializer.rb'
-          remove_file 'config/initializers/request_forgery_protection.rb'
-          remove_file 'config/initializers/per_form_csrf_tokens.rb'
         end
       end
 

@@ -39,18 +39,6 @@ class QueryCacheTest < ActiveRecord::TestCase
     assert ActiveRecord::Base.connection.query_cache_enabled, 'cache on'
   end
 
-  def test_exceptional_middleware_assigns_original_connection_id_on_error
-    connection_id = ActiveRecord::Base.connection_id
-
-    mw = middleware { |env|
-      ActiveRecord::Base.connection_id = self.object_id
-      raise "lol borked"
-    }
-    assert_raises(RuntimeError) { mw.call({}) }
-
-    assert_equal connection_id, ActiveRecord::Base.connection_id
-  end
-
   def test_middleware_delegates
     called = false
     mw = middleware { |env|
@@ -133,7 +121,6 @@ class QueryCacheTest < ActiveRecord::TestCase
 
   def test_cache_is_flat
     Task.cache do
-      Topic.columns # don't count this query
       assert_queries(1) { Topic.find(1); Topic.find(1); }
     end
 
@@ -144,13 +131,12 @@ class QueryCacheTest < ActiveRecord::TestCase
 
   def test_cache_does_not_wrap_string_results_in_arrays
     Task.cache do
-      # Oracle adapter returns count() as Fixnum or Float
+      # Oracle adapter returns count() as Integer or Float
       if current_adapter?(:OracleAdapter)
         assert_kind_of Numeric, Task.connection.select_value("SELECT count(*) AS count_all FROM tasks")
       elsif current_adapter?(:SQLite3Adapter, :Mysql2Adapter, :PostgreSQLAdapter)
         # Future versions of the sqlite3 adapter will return numeric
-        assert_instance_of Fixnum,
-         Task.connection.select_value("SELECT count(*) AS count_all FROM tasks")
+        assert_instance_of Fixnum, Task.connection.select_value("SELECT count(*) AS count_all FROM tasks")
       else
         assert_instance_of String, Task.connection.select_value("SELECT count(*) AS count_all FROM tasks")
       end
@@ -174,6 +160,22 @@ class QueryCacheTest < ActiveRecord::TestCase
     end
   ensure
     ActiveRecord::Base.configurations = conf
+  end
+
+  def test_cache_is_not_available_when_using_a_not_connected_connection
+    spec_name = Task.connection_specification_name
+    conf = ActiveRecord::Base.configurations['arunit'].merge('name' => 'test2')
+    ActiveRecord::Base.connection_handler.establish_connection(conf)
+    Task.connection_specification_name = "test2"
+    refute Task.connected?
+
+    Task.cache do
+      Task.connection # warmup postgresql connection setup queries
+      assert_queries(2) { Task.find(1); Task.find(1) }
+    end
+  ensure
+    ActiveRecord::Base.connection_handler.remove_connection(Task.connection_specification_name)
+    Task.connection_specification_name = spec_name
   end
 
   def test_query_cache_doesnt_leak_cached_results_of_rolled_back_queries

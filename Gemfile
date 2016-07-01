@@ -11,8 +11,9 @@ gem 'mocha', '~> 0.14', require: false
 
 gem 'rack-cache', '~> 1.2'
 gem 'jquery-rails'
-gem 'coffee-rails', '~> 4.1.0'
-gem 'turbolinks', github: 'turbolinks/turbolinks-rails'
+gem 'coffee-rails'
+gem 'sass-rails'
+gem 'turbolinks', '~> 5'
 
 # require: false so bcrypt is loaded only when has_secure_password is used.
 # This is to avoid Active Model (and by extension the entire framework)
@@ -43,14 +44,15 @@ group :job do
   gem 'resque-scheduler', require: false
   gem 'sidekiq', require: false
   gem 'sucker_punch', require: false
-  gem 'delayed_job', require: false
+  gem 'delayed_job', require: false, github: 'collectiveidea/delayed_job'
   gem 'queue_classic', github: "QueueClassic/queue_classic", branch: 'master', require: false, platforms: :ruby
   gem 'sneakers', require: false
   gem 'que', require: false
   gem 'backburner', require: false
-  gem 'qu-rails', github: "bkeepers/qu", branch: "master", require: false
+  #TODO: add qu after it support Rails 5.1
+  # gem 'qu-rails', github: "bkeepers/qu", branch: "master", require: false
   gem 'qu-redis', require: false
-  gem 'delayed_job_active_record', require: false
+  gem 'delayed_job_active_record', require: false, github: 'collectiveidea/delayed_job_active_record'
   gem 'sequel', require: false
 end
 
@@ -63,6 +65,12 @@ group :cable do
   gem 'redis', require: false
 
   gem 'faye-websocket', require: false
+
+  # Lock to 1.1.1 until the fix for https://github.com/faye/faye/issues/394 is released
+  gem 'faye', '1.1.1', require: false
+
+  gem 'blade', require: false
+  gem 'blade-sauce_labs_plugin', require: false
 end
 
 # Add your own local bundler stuff.
@@ -82,7 +90,7 @@ group :test do
 end
 
 platforms :ruby, :mswin, :mswin64, :mingw, :x64_mingw do
-  gem 'nokogiri', '>= 1.6.7.1'
+  gem 'nokogiri', '>= 1.6.8'
 
   # Needed for compiling the ActionDispatch::Journey parser.
   gem 'racc', '>=1.4.6', require: false
@@ -92,7 +100,7 @@ platforms :ruby, :mswin, :mswin64, :mingw, :x64_mingw do
 
   group :db do
     gem 'pg', '>= 0.18.0'
-    gem 'mysql2', '>= 0.4.0'
+    gem 'mysql2', '>= 0.4.4'
   end
 end
 
@@ -129,3 +137,4 @@ end
 # A gem necessary for Active Record tests with IBM DB.
 gem 'ibm_db' if ENV['IBM_DB']
 gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
+gem 'wdm', '>= 0.1.0', platforms: [:mingw, :mswin, :x64_mingw, :mswin64]
